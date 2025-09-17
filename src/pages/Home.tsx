@@ -1,173 +1,137 @@
-import { useState, useEffect } from "react";
-import { Loader2, Search, Filter } from "lucide-react";
-import BatchCard from "@/components/BatchCard";
-import Navbar from "@/components/Navbar";
-import { harvests } from "@/services/api";
-import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { QrCode, Scan, Info, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-
-interface Harvest {
-  _id: string;
-  crop: string;
-  harvestDate: string;
-  farmer: {
-    name: string;
-    location: string;
-  };
-  quantity: number;
-  unit: string;
-  status: string;
-}
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Navbar from "@/components/Navbar";
+import QRScanner from "@/components/QRScanner";
 
 const Home = () => {
-  const [harvestsData, setHarvestsData] = useState<Harvest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("all");
-  const { toast } = useToast();
+  const [showScanner, setShowScanner] = useState(false);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchHarvests();
-  }, []);
-
-  const fetchHarvests = async () => {
-    try {
-      setLoading(true);
-      const response = await harvests.getAll();
-      setHarvestsData(response.data);
-    } catch (error) {
-      console.error('Error fetching harvests:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load harvest data. Please try again.",
-        variant: "destructive",
-      });
-      // Mock data for development
-      setHarvestsData([
-        {
-          _id: "1",
-          crop: "Organic Tomatoes",
-          harvestDate: "2024-01-15",
-          farmer: { name: "John Smith", location: "Valley Farm, CA" },
-          quantity: 500,
-          unit: "kg",
-          status: "delivered"
-        },
-        {
-          _id: "2",
-          crop: "Sweet Corn",
-          harvestDate: "2024-01-10",
-          farmer: { name: "Maria Garcia", location: "Sunset Ranch, TX" },
-          quantity: 800,
-          unit: "kg",
-          status: "shipped"
-        },
-        {
-          _id: "3",
-          crop: "Organic Carrots",
-          harvestDate: "2024-01-08",
-          farmer: { name: "David Chen", location: "Green Valley, OR" },
-          quantity: 300,
-          unit: "kg",
-          status: "processing"
-        }
-      ]);
-    } finally {
-      setLoading(false);
-    }
+  const handleQRScan = (harvestId: string) => {
+    navigate(`/batch/${harvestId}`);
   };
 
-  const filteredHarvests = harvestsData.filter(harvest => {
-    const matchesSearch = harvest.crop.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         harvest.farmer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         harvest.farmer.location.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = selectedStatus === "all" || harvest.status.toLowerCase() === selectedStatus.toLowerCase();
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  const statuses = ["all", ...Array.from(new Set(harvestsData.map(h => h.status)))];
+  const handleStartScan = () => {
+    setShowScanner(true);
+  };
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       
       {/* Hero Section */}
-      <section className="bg-gradient-hero py-16">
+      <section className="bg-gradient-hero py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-primary-foreground mb-4">
-            Track Your Food's Journey
-          </h1>
-          <p className="text-lg md:text-xl text-primary-foreground/90 mb-8 max-w-2xl mx-auto">
-            Discover the complete story behind your fresh produce, from farm to table.
-          </p>
+          <div className="max-w-3xl mx-auto">
+            <QrCode className="w-16 h-16 mx-auto mb-6 text-primary-foreground" />
+            <h1 className="text-4xl md:text-6xl font-bold text-primary-foreground mb-6">
+              Scan & Trace
+            </h1>
+            <p className="text-lg md:text-xl text-primary-foreground/90 mb-8">
+              Discover the complete journey of your food from farm to table. Simply scan the QR code on your product to see its full supply chain story.
+            </p>
+            <Button 
+              size="lg" 
+              onClick={handleStartScan}
+              className="bg-card hover:bg-card/90 text-foreground shadow-glow gap-3 px-8 py-4 text-lg"
+            >
+              <Scan className="w-6 h-6" />
+              Start Scanning
+            </Button>
+          </div>
         </div>
       </section>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-12">
-        {/* Search and Filter */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search by crop, farmer, or location..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+      {/* Features Section */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-foreground mb-4">How It Works</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Our QR codes contain the complete supply chain information for your product
+            </p>
           </div>
-          
-          <div className="flex gap-2">
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Step 1 */}
+            <Card className="text-center shadow-card hover:shadow-card-hover transition-all">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                  <QrCode className="w-8 h-8 text-primary-foreground" />
+                </div>
+                <CardTitle className="text-xl">1. Scan QR Code</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Use your phone's camera to scan the QR code on your product packaging
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Step 2 */}
+            <Card className="text-center shadow-card hover:shadow-card-hover transition-all">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Info className="w-8 h-8 text-primary-foreground" />
+                </div>
+                <CardTitle className="text-xl">2. View Timeline</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  See the complete journey including harvest, testing, processing, and transport
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Step 3 */}
+            <Card className="text-center shadow-card hover:shadow-card-hover transition-all">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ArrowRight className="w-8 h-8 text-primary-foreground" />
+                </div>
+                <CardTitle className="text-xl">3. Trust & Verify</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Get complete transparency about the origin and quality of your food
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-16 bg-muted/30">
+        <div className="container mx-auto px-4 text-center">
+          <div className="max-w-2xl mx-auto">
+            <h2 className="text-3xl font-bold text-foreground mb-4">
+              Ready to Trace Your Food?
+            </h2>
+            <p className="text-lg text-muted-foreground mb-8">
+              Start by scanning the QR code on any participating product
+            </p>
             <Button 
-              variant="outline" 
-              size="sm"
-              className="gap-2"
+              size="lg" 
+              onClick={handleStartScan}
+              className="gap-3 px-8 py-4 text-lg"
             >
-              <Filter className="w-4 h-4" />
-              Filter
+              <Scan className="w-6 h-6" />
+              Open Camera Scanner
             </Button>
           </div>
         </div>
+      </section>
 
-        {/* Status Filter */}
-        <div className="flex flex-wrap gap-2 mb-8">
-          {statuses.map(status => (
-            <Button
-              key={status}
-              variant={selectedStatus === status ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedStatus(status)}
-              className="capitalize"
-            >
-              {status}
-            </Button>
-          ))}
-        </div>
-
-        {/* Harvest Batches Grid */}
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <span className="ml-2 text-muted-foreground">Loading harvest data...</span>
-          </div>
-        ) : filteredHarvests.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-lg text-muted-foreground mb-4">No harvest batches found</p>
-            <Button onClick={fetchHarvests} variant="outline">
-              Refresh Data
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredHarvests.map((harvest) => (
-              <BatchCard key={harvest._id} batch={harvest} />
-            ))}
-          </div>
-        )}
-      </main>
+      {/* QR Scanner Modal */}
+      <QRScanner 
+        isOpen={showScanner}
+        onScan={handleQRScan}
+        onClose={() => setShowScanner(false)}
+      />
     </div>
   );
 };

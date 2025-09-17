@@ -10,8 +10,8 @@ const Navbar = () => {
               <Leaf className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">FarmTrace</h1>
-              <p className="text-sm text-muted-foreground">Customer Portal</p>
+              <h1 className="text-xl font-bold text-foreground">FarmTrace Scanner</h1>
+              <p className="text-sm text-muted-foreground">QR Code Portal</p>
             </div>
           </div>
           

@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Navbar from "@/components/Navbar";
-import { harvests } from "@/services/api";
+import Timeline from "@/components/Timeline";
+import { harvests, labs, processing, transport } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface BatchDetails {
@@ -44,10 +45,22 @@ interface BatchDetails {
   qrScanned?: boolean;
 }
 
+interface TimelineEvent {
+  id: string;
+  type: 'harvest' | 'lab' | 'processing' | 'transport' | 'delivery';
+  title: string;
+  description: string;
+  date: string;
+  location?: string;
+  details?: Record<string, any>;
+  status: 'completed' | 'in-progress' | 'pending';
+}
+
 const BatchDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [batch, setBatch] = useState<BatchDetails | null>(null);
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -60,8 +73,101 @@ const BatchDetails = () => {
   const fetchBatchDetails = async (batchId: string) => {
     try {
       setLoading(true);
-      const response = await harvests.getById(batchId);
-      setBatch(response.data);
+      
+      // Fetch all data in parallel
+      const [batchResponse, labsResponse, processingResponse, transportResponse] = await Promise.allSettled([
+        harvests.getById(batchId),
+        labs.getByHarvestId(batchId),
+        processing.getByHarvestId(batchId),
+        transport.getByHarvestId(batchId)
+      ]);
+
+      // Process batch data
+      if (batchResponse.status === 'fulfilled') {
+        setBatch(batchResponse.value.data);
+      }
+
+      // Build timeline from all sources
+      const events: TimelineEvent[] = [];
+
+      // Add harvest event
+      if (batchResponse.status === 'fulfilled') {
+        const batchData = batchResponse.value.data;
+        events.push({
+          id: 'harvest',
+          type: 'harvest',
+          title: 'Harvest Registered',
+          description: `${batchData.crop} harvested by ${batchData.farmer.name}`,
+          date: batchData.harvestDate,
+          location: batchData.farmer.location,
+          details: {
+            quantity: `${batchData.quantity} ${batchData.unit}`,
+            farmer: batchData.farmer.name,
+            crop: batchData.crop
+          },
+          status: 'completed'
+        });
+      }
+
+      // Add lab test events
+      if (labsResponse.status === 'fulfilled') {
+        const labData = labsResponse.value.data;
+        labData.forEach((test: any, index: number) => {
+          events.push({
+            id: `lab-${index}`,
+            type: 'lab',
+            title: 'Lab Test Completed',
+            description: 'Quality and safety testing performed',
+            date: test.date,
+            location: test.laboratory || 'Quality Control Lab',
+            details: test.results,
+            status: 'completed'
+          });
+        });
+      }
+
+      // Add processing events
+      if (processingResponse.status === 'fulfilled') {
+        const processData = processingResponse.value.data;
+        processData.forEach((step: any, index: number) => {
+          events.push({
+            id: `process-${index}`,
+            type: 'processing',
+            title: step.step,
+            description: step.notes || 'Processing step completed',
+            date: step.date,
+            location: step.location,
+            details: step.details || {},
+            status: 'completed'
+          });
+        });
+      }
+
+      // Add transport events
+      if (transportResponse.status === 'fulfilled') {
+        const transportData = transportResponse.value.data;
+        transportData.forEach((event: any, index: number) => {
+          events.push({
+            id: `transport-${index}`,
+            type: 'transport',
+            title: 'Transport Event',
+            description: `From ${event.from} to ${event.to}`,
+            date: event.date,
+            location: event.from,
+            details: {
+              destination: event.to,
+              temperature: event.temperature,
+              duration: event.duration,
+              driver: event.driver || 'N/A',
+              vehicle: event.vehicle || 'N/A'
+            },
+            status: 'completed'
+          });
+        });
+      }
+
+      setTimelineEvents(events);
+
     } catch (error) {
       console.error('Error fetching batch details:', error);
       toast({
@@ -74,7 +180,7 @@ const BatchDetails = () => {
       setBatch({
         _id: batchId,
         crop: "Organic Tomatoes",
-        harvestDate: "2024-01-15",
+        harvestDate: "2024-01-15T08:00:00Z",
         farmer: {
           name: "John Smith",
           location: "Valley Farm, California",
@@ -83,48 +189,104 @@ const BatchDetails = () => {
         quantity: 500,
         unit: "kg",
         status: "delivered",
-        labTests: [
-          {
-            date: "2024-01-16",
-            results: {
-              pesticides: "None detected",
-              freshness: "Excellent",
-              quality: "Grade A"
-            }
-          }
-        ],
-        processingSteps: [
-          {
-            step: "Washing & Sorting",
-            date: "2024-01-16",
-            location: "Valley Processing Center",
-            notes: "Sorted by size and quality, cold water wash"
-          },
-          {
-            step: "Packaging",
-            date: "2024-01-17",
-            location: "Valley Processing Center",
-            notes: "Packed in biodegradable containers"
-          }
-        ],
-        transportEvents: [
-          {
-            from: "Valley Farm",
-            to: "Processing Center",
-            date: "2024-01-16",
-            temperature: "4°C",
-            duration: "2 hours"
-          },
-          {
-            from: "Processing Center",
-            to: "Distribution Hub",
-            date: "2024-01-18",
-            temperature: "4°C",
-            duration: "6 hours"
-          }
-        ],
         qrScanned: true
       });
+
+      // Mock timeline events
+      setTimelineEvents([
+        {
+          id: 'harvest',
+          type: 'harvest',
+          title: 'Harvest Registered',
+          description: 'Organic Tomatoes harvested by John Smith',
+          date: '2024-01-15T08:00:00Z',
+          location: 'Valley Farm, California',
+          details: {
+            quantity: '500 kg',
+            farmer: 'John Smith',
+            crop: 'Organic Tomatoes',
+            weather: 'Sunny, 22°C'
+          },
+          status: 'completed'
+        },
+        {
+          id: 'lab-1',
+          type: 'lab',
+          title: 'Lab Test Completed',
+          description: 'Quality and safety testing performed',
+          date: '2024-01-16T10:30:00Z',
+          location: 'Valley Quality Control Lab',
+          details: {
+            pesticides: 'None detected',
+            freshness: 'Excellent',
+            quality: 'Grade A',
+            pH: '4.2',
+            brix: '6.5'
+          },
+          status: 'completed'
+        },
+        {
+          id: 'process-1',
+          type: 'processing',
+          title: 'Washing & Sorting',
+          description: 'Produce cleaned and sorted by quality',
+          date: '2024-01-16T14:00:00Z',
+          location: 'Valley Processing Center',
+          details: {
+            washMethod: 'Cold water rinse',
+            sortCriteria: 'Size and color',
+            rejected: '5 kg',
+            accepted: '495 kg'
+          },
+          status: 'completed'
+        },
+        {
+          id: 'process-2',
+          type: 'processing',
+          title: 'Packaging',
+          description: 'Products packaged for distribution',
+          date: '2024-01-17T09:00:00Z',
+          location: 'Valley Processing Center',
+          details: {
+            packagingType: 'Biodegradable containers',
+            packSize: '2 kg containers',
+            totalContainers: '247',
+            labels: 'Applied with QR codes'
+          },
+          status: 'completed'
+        },
+        {
+          id: 'transport-1',
+          type: 'transport',
+          title: 'Transport to Distribution',
+          description: 'From Valley Farm to Regional Distribution Hub',
+          date: '2024-01-18T06:00:00Z',
+          location: 'Valley Farm, California',
+          details: {
+            destination: 'Regional Distribution Hub',
+            temperature: '4°C maintained',
+            duration: '6 hours',
+            driver: 'Mike Johnson',
+            vehicle: 'Refrigerated Truck RT-401'
+          },
+          status: 'completed'
+        },
+        {
+          id: 'delivery-1',
+          type: 'delivery',
+          title: 'Delivered to Retailer',
+          description: 'Final delivery to retail location',
+          date: '2024-01-19T10:00:00Z',
+          location: 'Regional Distribution Hub',
+          details: {
+            destination: 'Fresh Market Store #123',
+            deliveryTime: '10:00 AM',
+            condition: 'Excellent',
+            receivedBy: 'Store Manager'
+          },
+          status: 'completed'
+        }
+      ]);
     } finally {
       setLoading(false);
     }

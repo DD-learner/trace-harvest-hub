@@ -39,4 +39,16 @@ export const harvests = {
   getById: (id: string) => api.get(`/harvests/${id}`),
 };
 
+export const labs = {
+  getByHarvestId: (harvestId: string) => api.get(`/labs/${harvestId}`),
+};
+
+export const processing = {
+  getByHarvestId: (harvestId: string) => api.get(`/processing/${harvestId}`),
+};
+
+export const transport = {
+  getByHarvestId: (harvestId: string) => api.get(`/transport/${harvestId}`),
+};
+
 export default api;
